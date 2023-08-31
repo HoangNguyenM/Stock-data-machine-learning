@@ -3,7 +3,7 @@
 # <p align="center">Machine learning methods on stock data </p>
 
 <div align="center">
-  <a href="https://github.com/HoangNguyenM/" target="_blank">Hoang&nbsp;Nguyen</a> &emsp; <b>&middot;</b> &emsp;
+  <a href="https://github.com/HoangNguyenM/" target="_blank">Hoang&nbsp;Nguyen</a>
 </div>
 </p>
 
