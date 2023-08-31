@@ -1,0 +1,7 @@
+gymnasium
+torch
+torchvision
+torchaudio
+tensorflow==2.13.0
+ta
+scikit-optimize
