@@ -138,7 +138,7 @@ class DQNAgent:
         self.optimizer = Adam(learning_rate=learning_rate)
         self.loss_function = tf.keras.losses.Huber()
 
-        self.memory = deque(maxlen=max_memory)  # Store experience replay
+        self.memory = deque(maxlen=max_memory)
 
     def build_dqn(self):
         model = Sequential()
@@ -169,26 +169,6 @@ class DQNAgent:
     def remember(self, state, action, reward, next_state, done, time_passed):
         self.memory.append((state, action, reward, next_state, done, time_passed))
 
-    # @tf.function
-    # def replay(self, batch_size):
-    #     if len(self.memory) < batch_size:
-    #         return
-
-    #     samples = random.sample(self.memory, batch_size)
-    #     for state, action, reward, next_state, done, time_passed in samples:
-    #         target = reward
-    #         if not done:
-    #             target = reward + (self.gamma ** time_passed) * tf.reduce_max(self.target_model(next_state[None, ...]))
-
-    #         target_q_values = self.model(state[None, ...])
-    #         indices = tf.constant([[0, action]])
-    #         target_q_values = tf.tensor_scatter_nd_update(target_q_values, indices, tf.expand_dims(tf.cast(target, dtype=tf.float32), axis=0))
-
-    #         with tf.GradientTape() as tape:
-    #             predicted_q_values = self.model(state[None, ...])
-    #             loss = self.loss_function(target_q_values, predicted_q_values)
-    #         gradients = tape.gradient(loss, self.model.trainable_variables)
-    #         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
 
     @tf.function
     def replay(self, batch_size):
@@ -275,7 +255,7 @@ if __name__ == "__main__":
         dqn_agent.model.load_weights('checkpoints/DQN_model.keras')
     dqn_agent.model.summary()
     # Count the trainable parameters
-    print(sum(p.numel() for p in dqn_agent.model.trainable_variables))
+
     get_memory.get_memory_usage()
 
     # Initialize the evaluating environment

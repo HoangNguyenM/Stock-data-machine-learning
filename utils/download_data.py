@@ -5,7 +5,8 @@ import time
 import pytz
 import os
 
-api_key = input("Enter API key:")
+# Get API key for alpha vantage
+api_key = input(f"Enter API key:")
 
 def download_alpha_vantage(symbol='TQQQ', interval='1min', start_date=datetime(2000, 1, 1), end_date=datetime.now()):
     

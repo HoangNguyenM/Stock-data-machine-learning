@@ -1,119 +1,88 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
 import numpy as np
 
 from keras.models import Sequential, load_model
 from keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout
+from keras.callbacks import EarlyStopping
 
-import get_data
+class CNN:
+    def __init__(self, prior_duration=120, post_duration=60):
+        super(CNN, self).__init__()
+        self.prior_duration = prior_duration
+        self.post_duration = post_duration
 
-def import_data(ticker_list):
-    data_list = []
-    # get data for each ticker
-    for ticker in ticker_list:
-        data = get_data.get_data(ticker=ticker, update=False)
-        data_list.append(data)
+        self.model = self.get_model()
 
-    return data_list
+        self.model.compile(optimizer='adam', loss='mean_squared_error')
 
-def make_X_y(data, prior_duration=60, post_duration=30, scale=True):
+    def make_CNN(self):
+        # Build the CNN model
+        model = Sequential([
+            Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(self.prior_duration, 5), name='conv1d_1'),
+            MaxPooling1D(pool_size=2),
+            Conv1D(filters=128, kernel_size=3, activation='relu', name='conv1d_2'),
+            MaxPooling1D(pool_size=2),
+            Conv1D(filters=256, kernel_size=3, activation='relu', name='conv1d_3'),
+            MaxPooling1D(pool_size=2),
+            
+            Flatten(),
+            
+            Dense(128, activation='relu', name='dense_3'),
+            Dropout(0.1),
+            Dense(64, activation='relu', name='dense_2'),
+            Dense(1, name='dense_1')
+        ])
 
-    # Calculate percentage change in Close
-    y = (data['Close'].values[prior_duration+post_duration:] / data['Close'].values[prior_duration:(-post_duration)] - 1) * 100
+        return model
 
-    # Scale the data
-    close_mean = data['Close'].mean()
-    close_std = data['Close'].std()
-    volume_mean = data['Volume'].mean()
-    volume_std = data['Volume'].std()
+    def get_model(self):
+        # create CNN, or load model if already pretrained
+        if os.path.isfile(f'checkpoints/CNN_{self.prior_duration}_{self.post_duration}.keras'):
+            model = load_model(f'checkpoints/CNN_{self.prior_duration}_{self.post_duration}.keras', compile=False)
+        else:
+            model = self.make_CNN()
+        return model
 
-    # normalize the price
-    data[['Open', 'High', 'Low', 'Close']] \
-        = (data[['Open', 'High', 'Low', 'Close']] - close_mean) / close_std
+    def train(self, X_train, Y_train, X_test, Y_test, epochs=100, batch_size=64, steps_per_epoch=None, validation_freq=10, early_stop=False):
+        # Define the EarlyStopping callback
+        if early_stop:
+            callbacks = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+        else:
+            callbacks = None
+        # Train the model
+        self.model.fit(x=X_train, y=Y_train, 
+                epochs=epochs, batch_size=batch_size, steps_per_epoch=steps_per_epoch,
+                validation_data=(X_test, Y_test), validation_freq=validation_freq,
+                callbacks=callbacks)
 
-    # normalize the volume
-    data['Volume'] = (data['Volume'] - volume_mean) / volume_std
+        self.model.save(f'checkpoints/CNN_{self.prior_duration}_{self.post_duration}.keras')
 
-    data = data[['Open', 'High', 'Low', 'Close', 'Volume']]
-
-    X = np.array([data[i:i+prior_duration] for i in range(len(data) - prior_duration)])
+    def evaluate(self, X_test, Y_test, batch_size=64):
+        loss = self.model.evaluate(x=X_test, y=Y_test, batch_size=batch_size)
+        return loss
     
-    return X, y
-
-def make_CNN(prior_duration=60):
-    # Build the CNN model
-    model = Sequential([
-        Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(prior_duration, 5), name='conv1d_1'),
-        MaxPooling1D(pool_size=2),
-        Conv1D(filters=128, kernel_size=3, activation='relu', name='conv1d_2'),
-        MaxPooling1D(pool_size=2),
-
-        Flatten(),
-        
-        Dense(64, activation='relu', name='dense_2'),
-        Dropout(0.1),
-        Dense(1, name='dense_1')
-    ])
-
-    return model
+def make_X_y(data, prior_duration=120, post_duration=60):
+    # normalize the state: Open, High, Low, Close are divided by max High; Volume is divided by max Volume
+    # X contains the data from prior windows, Y contains the data from post windows
+    # Y is also normalized using the same factors as X
+    # X has shape (data.shape[0]-prior-post, prior, 5), Y has shape (data.shape[0]-prior-post, post, 5)
     
-def train_model(data_list, prior_duration=60, post_duration=30):
-    # create CNN, or load model if already pretrained
-    if os.path.isfile(f'models/CNN_{prior_duration}_{post_duration}.h5'):
-        model = load_model(f'models/CNN_{prior_duration}_{post_duration}.h5', compile=False)
-    else:
-        model = make_CNN(prior_duration=prior_duration)
+    indices_dim0 = np.arange(data.shape[0] - prior_duration - post_duration)
+    indices_dim1 = np.arange(prior_duration)
+    X = data[indices_dim0[..., None] + indices_dim1[None, ...], ...]
+    norm_factor = np.max(X[..., 3], axis=-1)
+    volume_norm_factor = np.max(X[..., 4], axis=-1)
+    X = np.concatenate([X[..., :4] / norm_factor[..., None, None], X[..., 4:] / volume_norm_factor[..., None, None]], axis=-1)
 
-    # Compile the model
-    model.compile(optimizer='adam', loss='mean_squared_error')
-    X_list, y_list = [], []
-
-    for data in data_list:
-        # get X and y
-        X, y = make_X_y(data.copy(), prior_duration=prior_duration, post_duration=post_duration, scale=True)
-
-        X = X[:(-post_duration)]
-
-        X_list.append(X)
-        y_list.append(y)
-
-    X = np.concatenate(X_list)
-    y = np.concatenate(y_list)
-    print(X.shape)
-    print(y.shape)
-
-    # Split the data into training and testing sets
-    # Randomly shuffle indices
-    indices = np.arange(len(X))
-    np.random.shuffle(indices)
-
-    X = X[indices]
-    y = y[indices]
-
-    split_ratio = 0.8
-    split_idx = int(split_ratio * len(X))
-
-    X_train, X_test = X[:split_idx], X[split_idx:]
-    y_train, y_test = y[:split_idx], y[split_idx:]
-
-    # Train the model
-    model.fit(x=X_train, y=y_train, 
-            epochs=50, batch_size=64, 
-            validation_data=(X_test, y_test),
-            validation_freq=10)
-
-    model.save(f'models/CNN_{prior_duration}_{post_duration}.h5')
-
-if __name__ == "__main__":
-
-    ticker_list = ['AMD', 'AMZN', 'GOOGL', 'GS', 'MSFT', 'NVDA', 'SPOT', 'TQQQ', 'TSLA']
-    data_list = import_data(ticker_list=ticker_list)
-
-    # Create sequences of input data and target values
-    prior_duration = [30, 45, 60, 90, 120]
-    post_duration = [15, 30, 45]
-
-    for prior in prior_duration:
-        for post in post_duration:
-            train_model(data_list=data_list, prior_duration=prior, post_duration=post)
+    indices_dim0 = np.arange(prior_duration, data.shape[0] - post_duration)
+    indices_dim1 = np.arange(post_duration)
+    Y = data[indices_dim0[..., None] + indices_dim1[None, ...], ...]
+    Y = np.concatenate([Y[..., :4] / norm_factor[..., None, None], Y[..., 4:] / volume_norm_factor[..., None, None]], axis=-1)
+    
+    # Calculate different outputs from the post duration, all in percent, relative to the last input in X
+    max_gain = (np.max(Y[..., 3], axis=-1) / X[..., -1, 3] - 1) * 100
+    max_loss = (np.min(Y[..., 3], axis=-1) / X[..., -1, 3] - 1) * 100
+    percent_change = (Y[..., -1, 3] / X[..., -1, 3] - 1) * 100
+    
+    # X has shape (n_samples, sequence_len, n_channels), Y has shape (n_samples,)
+    return X, max_gain, max_loss, percent_change

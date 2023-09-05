@@ -1,7 +1,5 @@
-import os
 from joblib import Parallel, delayed
 import pickle
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 import numpy as np
 from skopt import gp_minimize

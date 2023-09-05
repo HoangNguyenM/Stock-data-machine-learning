@@ -1,79 +1,72 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-import time
-
-from evaluate import run_strategy
-from Bayesian_optim import Bayes
-from utils import get_symbols, download_data
-from config import indicator_config
 import configargparse
+import run_lib
+from utils.get_symbols import get_SP100_symbols, get_SP500_symbols
+from config import Bayes_config, CNN_config
+
+def run_main(config):
+    ### Use the following lines to change configs for convenience, configs can also be modified in "config" folder or by command line ###
+    # general config
+    config.task = 'train'
+    config.model = 'CNN'
+    config.strategy = 'Indicators'
+    # data config
+    config.short = False
+    config.start_date = None
+    config.end_date = '2018-12-31'
+    config.eval_start_date = '2019-01-01'
+    config.eval_end_date = None
+    # technical config
+    config.n_jobs = 5
+
+    model_config = get_model_config(config.model)
+    config.ticker_list = get_ticker(type = config.ticker)
+    config.ticker_list = ["META", "TSLA", "GOOGL", "AMZN", "GS", "NVDA", "AMD", "JPM", "NFLX", "MSFT"]
+    print(config.ticker_list)
+
+    if config.task == 'download':
+        run_lib.download(config)
+    elif config.task == 'train':
+        run_lib.train(config, model_config)
+    elif config.task == 'evaluate':
+        run_lib.evaluate(config, model_config)
+
+
+def get_ticker(type):
+    if type == 'SP100':
+        return get_SP100_symbols()
+    elif type == 'SP500':
+        return get_SP500_symbols()
+    else:
+        return None
+    
+def get_model_config(model):
+    if model == 'Bayes':
+        return Bayes_config.get_config()
+    elif model == 'CNN':
+        return CNN_config.get_config()
 
 if __name__ == "__main__":
+
     p = configargparse.ArgParser()
 
-    p.add('--task', choices=['download', 'run', 'Bayes'])
-
+    # general config
+    p.add('--task', choices=['download', 'train', 'evaluate'])
+    p.add('--model', choices=['Bayes', 'CNN', 'DQN'])
+    p.add('--ticker', choices=['SP100', 'SP500', 'manual'], default='SP100')
     p.add('--strategy', choices=['Indicators', 'CNN'], default='Indicators')
+
+    # data config
     p.add('--short', type=bool, default=False)
     p.add('--start_date', default=None)
     p.add('--end_date', default=None)
+    p.add('--eval_start_date', default=None)
+    p.add('--eval_end_date', default=None)
 
+    # technical config
     p.add('--n_jobs', type=int, default=-1)
     p.add('--agent_num', type=int, default=0)
 
     config = p.parse_args()
 
-    # CHANGE TASK HERE
-    task = 'download'
-
-    SP500 = get_symbols.get_SP500_symbols()
-    SP100 = get_symbols.get_SP100_symbols()
-    #ticker_list = ["META", "TSLA", "GOOGL", "AMZN", "GS", "NVDA", "AMD", "JPM", "NFLX", "AAPL"]
-    ticker_list = SP500
-    ind = ticker_list.index('CMI')
-    ticker_list = ticker_list[ind+1:]
-    print(ticker_list)
-
-    # change strategy_name to make different strategies
-    strategy_name = 'Indicators'
-    short = False
-    n_jobs = 5
-
-    start_date = None
-    end_date = '2019-01-01'
-    
-    if short:
-        savefile = f"config/{strategy_name}_full_{config.agent_num}.pkl"
-    else:
-        savefile = f"config/{strategy_name}_long_{config.agent_num}.pkl"
-
-    ### download/update the data for all tickers ###
-    if task == 'download':
-        for ticker in ticker_list:
-            #if ticker not in SP100:
-            download_data.download_data(ticker=ticker)
-
-    ### run Bayesian optimization to find the best indicators ###
-    elif task == 'Bayes':
-        Bayes(ticker_list=ticker_list, start_date=start_date, end_date=end_date, 
-            strategy_name=strategy_name, short=short, n_jobs=n_jobs,
-            n_initial=20, n_total=30, savefile=savefile)
-        
-    ### run/test the strategy ###
-    elif task == 'evaluate':
-        # get the best config and run the strategy
-        learnables = indicator_config.get_learnables(strategy_name=strategy_name)
-        best_config = indicator_config.get_best_config()
-        
-        for sub_config in best_config:
-            print(f"Config to evaluate: {sub_config}")
-            kwargs = {}
-            for learnable in learnables:
-                kwargs[learnable] = sub_config[learnable]
-
-            start_time = time.time()
-            run_strategy(ticker_list=ticker_list, start_date=start_date, end_date=end_date, 
-                        strategy_name=strategy_name, short=short, n_jobs=n_jobs, **kwargs)
-            end_time = time.time()
-            print(f"The process took {end_time-start_time:.2f} seconds to run")
+    run_main(config)

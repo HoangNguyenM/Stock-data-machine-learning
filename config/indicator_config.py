@@ -52,7 +52,7 @@ def get_best_config():
     }
 
     # Get a list of all .pkl files in the folder
-    folder_path = "config"
+    folder_path = "checkpoints"
     pkl_files = [file for file in os.listdir(folder_path) if file.endswith(".pkl")]
     
     # Initialize an empty list to store loaded variables
