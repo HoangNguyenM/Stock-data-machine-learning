@@ -46,8 +46,6 @@ def train(config, model_config):
             del data_train
             X_test, Y_test = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
             del data_test
-            rand_ind = tuple(np.random.choice(np.arange(X_train.shape[0]), size=50, replace=False))
-            print(list(zip([X_train[ind].numpy() for ind in rand_ind], [Y_train[ind].numpy() for ind in rand_ind])))
             print(X_train.shape, Y_train.shape)
             print(X_test.shape, Y_test.shape)
             get_memory_usage()

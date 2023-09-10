@@ -22,7 +22,7 @@ def make_X_Y_numpy(data, prior_duration=120, post_duration=60):
 
     # normalize function
     def scale(x, min_value, max_value):
-        return -1 + 2 * (x - min_value) / (max_value - min_value)
+        return -1 + 2 * (x - min_value[..., None, None]) / (max_value - min_value)[..., None, None]
 
     indices_dim0 = np.arange(data.shape[0] - prior_duration - post_duration)
     indices_dim1 = np.arange(prior_duration)

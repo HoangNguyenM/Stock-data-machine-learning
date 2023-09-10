@@ -22,7 +22,6 @@ def run_main(config):
 
     model_config = get_model_config(config.model)
     config.ticker_list = get_ticker(type = config.ticker)
-    config.ticker_list = ["META", "TSLA", "GOOGL", "AMZN", "GS", "NVDA", "AMD", "JPM", "NFLX", "MSFT"]
     print(config.ticker_list)
 
     if config.task == 'download':
