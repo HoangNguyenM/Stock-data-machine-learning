@@ -1,11 +1,9 @@
 import time
 import numpy as np
 import tensorflow as tf
-import torch
-import itertools
-import ml_collections
 
-from models import CNN, CNN_tf, CNN_torch
+from models import NN_model
+import models.utils as mutils
 from Bayesian_optim import Bayes
 
 from config import indicator_config
@@ -32,29 +30,35 @@ def train(config, model_config):
             strategy_name=config.strategy, short=config.short, n_jobs=config.n_jobs,
             n_initial=model_config.n_initial, n_total=model_config.n_total, savefile=savefile)
         
-    elif config.model == 'CNN':
+    elif config.model == 'WMANN' or config.model == 'CNN':
         # get functions list for lib used: numpy, tensorflow or torch
-        func_dict = get_func_dict(lib=model_config.lib)
+        make_X_Y = mutils.make_X_Y(model_config.lib)
+        train_model = NN_model.NN_model(model_config)
+        train_model.model.summary()
 
         for ticker in config.ticker_list:
             print(f"Start training for {ticker}")
-            data_train = func_dict.get_tensor(get_data(ticker, start_date=config.start_date, end_date=config.end_date).values, dtype=func_dict.data_type)
-            data_test = func_dict.get_tensor(get_data(ticker, start_date=config.eval_start_date, end_date=config.eval_end_date).values, dtype=func_dict.data_type)
+            data_train = get_data(ticker, start_date=config.start_date, end_date=config.end_date).astype('float32').values
+            data_test = get_data(ticker, start_date=config.eval_start_date, end_date=config.eval_end_date).astype('float32').values
 
-            for prior, post in itertools.product(model_config.prior_duration, model_config.post_duration):
-                print(f"Building model for prior duration: {prior}, post duration: {post}")
-                X_train, Y_train, _, _ = func_dict.make_X_y(data_train, prior_duration=prior, post_duration=post)
-                X_test, Y_test, _, _ = func_dict.make_X_y(data_test, prior_duration=prior, post_duration=post)
+            print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
+            X_train, Y_train = make_X_Y(data_train, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
+            del data_train
+            X_test, Y_test = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
+            del data_test
+            rand_ind = tuple(np.random.choice(np.arange(X_train.shape[0]), size=50, replace=False))
+            print(list(zip([X_train[ind].numpy() for ind in rand_ind], [Y_train[ind].numpy() for ind in rand_ind])))
+            print(X_train.shape, Y_train.shape)
+            print(X_test.shape, Y_test.shape)
+            get_memory_usage()
 
-                print(X_train.shape, Y_train.shape)
-                print(X_test.shape, Y_test.shape)
-                get_memory_usage()
-
-                CNN_model = func_dict.get_model(prior_duration=prior, post_duration=post)
-                CNN_model.train(X_train, Y_train, X_test, Y_test, 
-                        epochs=model_config.epochs, batch_size=model_config.batch_size, steps_per_epoch=model_config.steps_per_epoch, 
-                        validation_freq=model_config.validation_freq, early_stop=model_config.early_stop)
-
+            train_model.train(X_train, Y_train, X_test, Y_test, 
+                    epochs=model_config.epochs, batch_size=model_config.batch_size, steps_per_epoch=model_config.steps_per_epoch, 
+                    validation_freq=model_config.validation_freq, early_stop=model_config.early_stop)
+            
+            del X_train, Y_train, X_test, Y_test
+            if model_config.lib == 'tensorflow':
+                tf.keras.backend.clear_session()
 
 def evaluate(config, model_config):
     ### run/test the strategy ###
@@ -75,42 +79,24 @@ def evaluate(config, model_config):
             end_time = time.time()
             print(f"The process took {end_time-start_time:.2f} seconds to run")
 
-    elif config.model == 'CNN':
+    elif config.model == 'WMANN' or config.model == 'CNN':
         # get functions list for lib used: numpy, tensorflow or torch
-        func_dict = get_func_dict(lib=model_config.lib)
+        make_X_Y = mutils.make_X_Y(model_config.lib)
+        test_model = NN_model.NN_model(model_config)
+        test_model.model.summary()
 
         for ticker in config.ticker_list:
             print(f"Start evaluating for {ticker}")
-            data_test = func_dict.get_tensor(get_data(ticker, start_date=config.eval_start_date, end_date=config.eval_end_date).values, dtype=func_dict.data_type)
+            data_test = get_data(ticker, start_date=config.eval_start_date, end_date=config.eval_end_date).values
 
-            for prior, post in itertools.product(model_config.prior_duration, model_config.post_duration):
-                print(f"Building model for prior duration: {prior}, post duration: {post}")
-                X_test, Y_test, _, _ = func_dict.make_X_y(data_test, prior_duration=prior, post_duration=post)
+            print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
+            X_test, Y_test, _, _ = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
+            del data_test
 
-                print(X_test.shape, Y_test.shape)
-                get_memory_usage()
+            print(X_test.shape, Y_test.shape)
+            get_memory_usage()
 
-                CNN_model = func_dict.get_model(prior_duration=prior, post_duration=post)
-                CNN_model.evaluate(X_test=X_test, Y_test=Y_test, batch_size=model_config.batch_size)
-
-def get_func_dict(lib):
-    func_dict = ml_collections.ConfigDict()
-
-    # get functions based on lib used
-    if lib == 'numpy':
-        func_dict.get_tensor = np.array
-        func_dict.data_type = np.float32
-        func_dict.make_X_y = CNN.make_X_y
-        func_dict.get_model = CNN.CNN
-    elif lib == 'tensorflow':
-        func_dict.get_tensor = tf.convert_to_tensor
-        func_dict.data_type = tf.float32
-        func_dict.make_X_y = CNN_tf.make_X_y
-        func_dict.get_model = CNN.CNN
-    elif lib == 'torch':
-        func_dict.get_tensor = torch.tensor
-        func_dict.data_type = torch.float32
-        func_dict.make_X_y = CNN_torch.make_X_y
-        func_dict.get_model = CNN_torch.CNN
-
-    return func_dict
+            test_model.evaluate(X_test=X_test, Y_test=Y_test, batch_size=model_config.batch_size)
+            del X_test, Y_test
+            if model_config.lib == 'tensorflow':
+                tf.keras.backend.clear_session()

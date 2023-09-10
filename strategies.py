@@ -3,7 +3,7 @@ import numpy as np
 
 from keras.models import load_model
 
-from models import CNN
+from models import NN_model
 from utils import get_indicators
 
 class Signals(ABC):
