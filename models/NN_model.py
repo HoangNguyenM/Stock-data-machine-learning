@@ -12,8 +12,9 @@ class NN_model:
     def __init__(self, model_config):
         super(NN_model, self).__init__()
         self.prior_duration = model_config.prior_duration
-        self.post_duration = model_config.prior_duration
-        self.model_name = model_config.name
+        self.post_duration = model_config.post_duration
+        self.model_name = model_config.model_name
+        self.lib = model_config.lib
         self.save_file = f'checkpoints/{self.model_name}_{self.prior_duration}_{self.post_duration}.keras'
 
         self.model = self.get_model(model_config)
@@ -27,9 +28,9 @@ class NN_model:
             model = load_model(self.save_file, compile=False)
         else:
             if self.model_name == 'WMANN':
-                model = WMANN(model_config)
+                model = WMANN(dict(model_config))
             elif self.model_name == 'CNN':
-                model = CNN(model_config)
+                model = CNN(dict(model_config))
             else:
                 raise NotImplementedError(f"{self.model_name} not implemented.")
         return model
@@ -52,5 +53,8 @@ class NN_model:
         loss = self.model.evaluate(x=X_test, y=Y_test, batch_size=batch_size, verbose=1)
         Y_pred = self.model.predict(X_test)[..., 0]
         # Generate random numbers without duplicates
-        rand_ind = np.random.choice(np.arange(len(Y_test)), size=50, replace=False).tolist()
-        print(list(zip(Y_test.numpy()[rand_ind], Y_pred[rand_ind])))
+        rand_ind = np.random.choice(np.arange(len(Y_test)), size=20, replace=False).tolist()
+        if self.lib == 'numpy':
+            print(list(zip(Y_test[rand_ind], Y_pred[rand_ind])))
+        if self.lib == 'tensorflow':
+            print(list(zip(Y_test.numpy()[rand_ind], Y_pred[rand_ind])))

@@ -6,8 +6,10 @@ from keras.regularizers import l2
 class CNN(keras.Model):
     def __init__(self, model_config):
         super(CNN, self).__init__()
-        self.prior_duration = model_config.prior_duration
-        self.post_duration = model_config.post_duration
+        self.model_config = model_config
+
+        for key, value in model_config.items():
+            setattr(self, key, value)
         
         initializer = tf.keras.initializers.GlorotNormal(seed=42)
 
@@ -20,9 +22,9 @@ class CNN(keras.Model):
         
         self.flatten = Flatten()
         
-        self.dropout1 = Dropout(model_config.dropout)
+        self.dropout1 = Dropout(self.dropout)
         self.fc1 = Dense(128, activation='relu', kernel_initializer=initializer)
-        self.dropout2 = Dropout(model_config.dropout)
+        self.dropout2 = Dropout(self.dropout)
         self.fc2 = Dense(64, activation='relu', kernel_initializer=initializer)
         self.fc3 = Dense(4, kernel_initializer=initializer)
 
@@ -45,3 +47,12 @@ class CNN(keras.Model):
         x = self.fc3(x)
 
         return x
+    
+    def get_config(self):
+            config = super(CNN, self).get_config()
+            config.update({'model_config': self.model_config})
+            return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

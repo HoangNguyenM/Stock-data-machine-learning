@@ -6,28 +6,29 @@ from keras.regularizers import l2
 class WMANN(keras.Model):
     def __init__(self, model_config):
         super(WMANN, self).__init__()
-        self.prior_duration = model_config.prior_duration
-        self.post_duration = model_config.post_duration
+        self.model_config = model_config
+
+        for key, value in model_config.items():
+            setattr(self, key, value)
 
         initializer = tf.keras.initializers.GlorotNormal(seed=42)
-        
-        self.kernel_list = model_config.kernel_list
-        self.input_len = [self.get_input_len(self.kernel_list[i], model_config.stride_size, model_config.ma_output_size) for i in range(len(self.kernel_list))]
+
+        self.input_len = [self.get_input_len(self.kernel_list[i], self.stride_size, self.ma_output_size) for i in range(len(self.kernel_list))]
         self.conv1 = []
 
         for i in range(len(self.kernel_list)):
-            self.conv1.append(Conv1D(model_config.nnodes1, kernel_size=int(self.kernel_list[i]), strides=model_config.stride_size, kernel_initializer=initializer))
+            self.conv1.append(Conv1D(self.nnodes1, kernel_size=int(self.kernel_list[i]), strides=self.stride_size, kernel_initializer=initializer))
 
-        self.conv2 = Conv2D(model_config.nnodes2, kernel_size=(1,model_config.ma_combine), strides=1, kernel_initializer=initializer)
+        self.conv2 = Conv2D(self.nnodes2, kernel_size=(1,self.ma_combine), strides=1, kernel_initializer=initializer)
         self.flatten = Flatten()
 
-        self.dropout1 = Dropout(model_config.dropout)
-        self.fc1 = Dense(512, kernel_regularizer=l2(model_config._lambda), bias_regularizer=l2(model_config._lambda), kernel_initializer=initializer)
+        self.dropout1 = Dropout(self.dropout)
+        self.fc1 = Dense(512, kernel_regularizer=l2(self._lambda), bias_regularizer=l2(self._lambda), kernel_initializer=initializer)
         self.leakyrelu1 = LeakyReLU(0.2)
         self.norm1 = LayerNormalization()
 
-        self.dropout2 = Dropout(model_config.dropout)
-        self.fc2 = Dense(128, bias_regularizer=l2(model_config._lambda), kernel_initializer=initializer)
+        self.dropout2 = Dropout(self.dropout)
+        self.fc2 = Dense(128, bias_regularizer=l2(self._lambda), kernel_initializer=initializer)
         self.leakyrelu2 = LeakyReLU(0.2)
         self.norm2 = LayerNormalization()
 
@@ -62,3 +63,12 @@ class WMANN(keras.Model):
         x = self.fc3(x)
 
         return x
+    
+    def get_config(self):
+        config = super(WMANN, self).get_config()
+        config.update({'model_config': self.model_config})
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

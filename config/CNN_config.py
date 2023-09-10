@@ -2,7 +2,7 @@ import ml_collections
 
 def get_config():
     config = ml_collections.ConfigDict()
-    config.name = 'CNN'
+    config.model_name = 'CNN'
     # choose among 'numpy', 'tensorflow', or 'torch'
     config.lib = 'tensorflow'
 

@@ -46,6 +46,7 @@ def train(config, model_config):
             del data_train
             X_test, Y_test = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
             del data_test
+
             print(X_train.shape, Y_train.shape)
             print(X_test.shape, Y_test.shape)
             get_memory_usage()
@@ -88,7 +89,7 @@ def evaluate(config, model_config):
             data_test = get_data(ticker, start_date=config.eval_start_date, end_date=config.eval_end_date).values
 
             print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
-            X_test, Y_test, _, _ = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
+            X_test, Y_test = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
             del data_test
 
             print(X_test.shape, Y_test.shape)

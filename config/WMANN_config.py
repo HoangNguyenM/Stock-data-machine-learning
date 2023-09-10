@@ -2,12 +2,12 @@ import ml_collections
 
 def get_config():
     config = ml_collections.ConfigDict()
-    config.name = 'WMANN'
+    config.model_name = 'WMANN'
     # choose among 'numpy', 'tensorflow', or 'torch'
     config.lib = 'tensorflow'
 
     # train hyperparameters
-    config.epochs = 200
+    config.epochs = 100
     config.batch_size = 2048
     config.steps_per_epoch = 10
     config.validation_freq = 10
@@ -21,7 +21,7 @@ def get_config():
     config.stride_size = 1
     config.nnodes1 = 64
     config.nnodes2 = 64
-    config.kernel_list = [2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 60, 75]
+    config.kernel_list = [3, 10, 5, 15, 7, 20, 10, 30, 15, 45, 25, 75, 40]
     config.ma_combine = 2
 
     config._lambda = 0.001
