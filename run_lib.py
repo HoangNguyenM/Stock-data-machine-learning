@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import tensorflow as tf
+from keras import backend as K
 
 from models import NN_model
 import models.utils as mutils
@@ -33,15 +34,23 @@ def train(config, model_config):
     elif config.model == 'WMANN' or config.model == 'CNN':
         # get functions list for lib used: numpy, tensorflow or torch
         make_X_Y = mutils.make_X_Y(model_config.lib)
+        print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
         train_model = NN_model.NN_model(model_config)
-        train_model.model.summary()
+        lr = model_config.max_lr
 
         for ticker in config.ticker_list:
+            # update learning rate
+            if model_config.lib == 'tensorflow' or model_config.lib == 'numpy': 
+                K.set_value(train_model.model.optimizer.learning_rate, lr)
+            elif model_config.lib == 'torch':
+                for param_group in train_model.optimizer.param_groups:
+                    param_group['lr'] = lr
+            lr /= (model_config.max_lr/model_config.min_lr) ** (1/(len(config.ticker_list)-1))
+
             print(f"Start training for {ticker}")
             data_train = get_data(ticker, start_date=config.start_date, end_date=config.end_date).astype('float32').values
             data_test = get_data(ticker, start_date=config.eval_start_date, end_date=config.eval_end_date).astype('float32').values
-
-            print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
+            
             X_train, Y_train = make_X_Y(data_train, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
             del data_train
             X_test, Y_test = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
@@ -56,6 +65,7 @@ def train(config, model_config):
                     validation_freq=model_config.validation_freq, early_stop=model_config.early_stop)
             
             del X_train, Y_train, X_test, Y_test
+
             if model_config.lib == 'tensorflow':
                 tf.keras.backend.clear_session()
 
@@ -81,14 +91,13 @@ def evaluate(config, model_config):
     elif config.model == 'WMANN' or config.model == 'CNN':
         # get functions list for lib used: numpy, tensorflow or torch
         make_X_Y = mutils.make_X_Y(model_config.lib)
+        print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
         test_model = NN_model.NN_model(model_config)
-        test_model.model.summary()
 
         for ticker in config.ticker_list:
             print(f"Start evaluating for {ticker}")
-            data_test = get_data(ticker, start_date=config.eval_start_date, end_date=config.eval_end_date).values
+            data_test = get_data(ticker, start_date=config.eval_start_date, end_date=config.eval_end_date).astype('float32').values
 
-            print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
             X_test, Y_test = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
             del data_test
 

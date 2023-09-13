@@ -84,7 +84,7 @@ def make_X_Y_tf(data, prior_duration=120, post_duration=60):
     X = tf.concat([scale(X[..., :4], min_norm_factor, max_norm_factor), X[..., 4:] / volume_norm_factor[..., tf.newaxis, tf.newaxis]], axis=-1)
     Y = tf.stack([max_gain, max_loss, avg_change, percent_change], axis=-1)
 
-    # X has shape (n_samples, sequence_len, n_channels), Y has shape (n_samples,)
+    # X has shape (n_samples, sequence_len, n_channels), Y has shape (n_samples, 4)
     return X, Y
 
 def make_X_Y_torch(data, prior_duration=120, post_duration=60):
@@ -124,5 +124,5 @@ def make_X_Y_torch(data, prior_duration=120, post_duration=60):
     X = torch.cat([scale(X[..., :4], min_norm_factor, max_norm_factor), X[..., 4:] / volume_norm_factor[..., None, None]], dim=-1)
     Y = torch.stack([max_gain, max_loss, avg_change, percent_change], dim=-1)
 
-    # X has shape (n_samples, sequence_len, n_channels), Y has shape (n_samples,)
-    return X, Y
+    # return shape (n_samples, n_channels, sequence_len) for X due to torch shape customization, Y has shape (n_samples, 4) 
+    return torch.transpose(X, -1, -2), Y

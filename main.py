@@ -8,7 +8,7 @@ def run_main(config):
     ### Use the following lines to change configs for convenience, configs can also be modified in "config" folder or by command line ###
     # general config
     config.task = 'train'
-    config.model = 'CNN'
+    config.model = 'WMANN'
     config.strategy = 'Indicators'
     config.ticker = 'SP20'
     # data config
