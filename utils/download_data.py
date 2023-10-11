@@ -1,14 +1,14 @@
 import requests
+import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 import time
 import pytz
 import os
 
-# Get API key for alpha vantage
-api_key = input(f"Enter API key:")
-
 def download_alpha_vantage(symbol='TQQQ', interval='1min', start_date=datetime(2000, 1, 1), end_date=datetime.now()):
+    # Get API key for alpha vantage
+    api_key = input(f"Enter API key:")
     
     if start_date is None:
         start_date=datetime(2000, 1, 1)
@@ -116,7 +116,48 @@ def download_alpha_vantage(symbol='TQQQ', interval='1min', start_date=datetime(2
         final_df = None
     return final_df
 
-def update_data(ticker):
+def download_yfinance(symbol='TQQQ', interval='1m', start_date=datetime(2000, 1, 1), end_date=datetime.now()):
+    dfs = []
+    next_start_date = start_date
+
+    while next_start_date < end_date:
+        # Calculate the end_date after start_date 7 days
+        next_end_date = next_start_date + timedelta(days=7)
+        if next_end_date > end_date:
+            next_end_date = end_date
+
+        # Download data for the specified range, yfinance only allows 7-day period for minutely data
+        df = yf.download(symbol, start=next_start_date.strftime("%Y-%m-%d"), end=next_end_date.strftime("%Y-%m-%d"), interval=interval)
+        
+        if len(df) != 0:
+            dfs.append(df)
+
+        next_start_date = next_end_date + timedelta(days=1)
+
+    if dfs:
+        # Concatenate dataframes
+        final_df = pd.concat(dfs)
+
+        final_df['Close'] = final_df['Adj Close']
+        final_df.drop('Adj Close', axis=1, inplace=True)
+
+        # remove time zone from yfinance Datetime column
+        def convert_datetime(date_str):
+            date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S%z")
+            new_date = date.replace(tzinfo=None)
+            return new_date
+        
+        # Apply the conversion function to the column
+        final_df['Datetime'] = final_df.index.map(lambda x: convert_datetime(str(x)))
+        final_df.index = final_df['Datetime']
+        final_df.drop('Datetime', axis=1, inplace=True)
+
+        print(final_df.tail)
+    else:
+        final_df = None
+    return final_df
+
+def update_data(ticker, API):
     if os.path.isfile(f"data/{ticker}.csv"):
         data = pd.read_csv(f"data/{ticker}.csv")
         last_date_collected = data['Datetime'].values[-1].split(' ')[0]
@@ -126,7 +167,13 @@ def update_data(ticker):
     
     # download more data only if the start date is yesterday or earlier
     if start_date is None or start_date.date() <= (datetime.now() + timedelta(days=-1)).date():
-        data = download_alpha_vantage(ticker, start_date = start_date)
+        if API == 'yfinance':
+            data = download_yfinance(ticker, start_date=start_date)
+        elif API == 'alpha vantage':
+            data = download_alpha_vantage(ticker, start_date = start_date)
+        else:
+            raise NotImplementedError(f'API {API} not implemented')
+        
         if data is not None:
             if os.path.isfile(f"data/{ticker}.csv"):
                 data.to_csv(f"data/{ticker}.csv", mode='a', header=False)
@@ -137,6 +184,7 @@ def update_data(ticker):
     else:
         print(f"{ticker} already up to date.")
 
-def download_data(ticker='TQQQ'):
+# implemented API include yfinance and alpha vantage
+def download_data(ticker='TQQQ', API='yfinance'):
     # Use this function to download the latest 1min data
-    update_data(ticker)
+    update_data(ticker, API)
