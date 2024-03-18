@@ -6,12 +6,15 @@ import time
 import pytz
 import os
 
-def download_alpha_vantage(symbol='TQQQ', interval='1min', start_date=datetime(2000, 1, 1), end_date=datetime.now()):
-    # Get API key for alpha vantage
-    api_key = input(f"Enter API key:")
+# Free api key
+
+def download_alpha_vantage(symbol='TQQQ', interval='1min', start_date=datetime(2000, 1, 1), end_date=datetime.now(), api_key=None):
     
     if start_date is None:
         start_date=datetime(2000, 1, 1)
+
+    if not api_key:
+        raise ValueError("API key not specified")
 
     # # If the time is before 6pm, do not read the current day, set end_date to the date before
     # eastern = pytz.timezone('US/Eastern')
@@ -157,7 +160,7 @@ def download_yfinance(symbol='TQQQ', interval='1m', start_date=datetime(2000, 1,
         final_df = None
     return final_df
 
-def update_data(ticker, API):
+def update_data(ticker, API, api_key):
     if os.path.isfile(f"data/{ticker}.csv"):
         data = pd.read_csv(f"data/{ticker}.csv")
         last_date_collected = data['Datetime'].values[-1].split(' ')[0]
@@ -170,7 +173,7 @@ def update_data(ticker, API):
         if API == 'yfinance':
             data = download_yfinance(ticker, start_date=start_date)
         elif API == 'alpha vantage':
-            data = download_alpha_vantage(ticker, start_date = start_date)
+            data = download_alpha_vantage(ticker, start_date = start_date, api_key=api_key)
         else:
             raise NotImplementedError(f'API {API} not implemented')
         
@@ -185,6 +188,6 @@ def update_data(ticker, API):
         print(f"{ticker} already up to date.")
 
 # implemented API include yfinance and alpha vantage
-def download_data(ticker='TQQQ', API='yfinance'):
+def download_data(ticker='TQQQ', API='yfinance', api_key=None):
     # Use this function to download the latest 1min data
-    update_data(ticker, API)
+    update_data(ticker, API, api_key)

@@ -77,5 +77,17 @@ def get_SP100_symbols():
 
     return ticker_list
 
+def get_SP20_symbols():
+    # Read the symbols from the text file into a list
+    ticker_file = "utils/SP20.txt"
+    ticker_list = []
+
+    with open(ticker_file, 'r') as f:
+        for line in f:
+            symbol = line.strip()
+            ticker_list.append(symbol)
+
+    return ticker_list
+
 # print_SP100_symbols()
 # print_SP500_symbols()
