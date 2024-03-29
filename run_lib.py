@@ -18,6 +18,8 @@ def train(config, model_config):
     make_X_Y = mutils.make_X_Y(model_config.lib)
     print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
     train_model = NN_model.NN_model(model_config)
+    train_model.model.to(config.device)
+
     lr = model_config.max_lr
 
     for ticker in config.ticker_list:
@@ -38,12 +40,14 @@ def train(config, model_config):
         X_test, Y_test = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
         del data_test
 
+        X_train, Y_train, X_test, Y_test = X_train.to(config.device), Y_train.to(config.device), X_test.to(config.device), Y_test.to(config.device)
+
         print(X_train.shape, Y_train.shape)
         print(X_test.shape, Y_test.shape)
         get_memory_usage()
 
         train_model.train(X_train, Y_train, X_test, Y_test, 
-                epochs=model_config.epochs, batch_size=model_config.batch_size, steps_per_epoch=model_config.steps_per_epoch, 
+                epochs=model_config.epochs, batch_size=model_config.batch_size, 
                 validation_freq=model_config.validation_freq, early_stop=model_config.early_stop)
         
         del X_train, Y_train, X_test, Y_test
@@ -56,6 +60,7 @@ def evaluate(config, model_config):
     make_X_Y = mutils.make_X_Y(model_config.lib)
     print(f"Building model for prior duration: {model_config.prior_duration}, post duration: {model_config.post_duration}")
     test_model = NN_model.NN_model(model_config)
+    test_model.model.to(config.device)
 
     for ticker in config.ticker_list:
         print(f"Start evaluating for {ticker}")
@@ -63,6 +68,8 @@ def evaluate(config, model_config):
 
         X_test, Y_test = make_X_Y(data_test, prior_duration=model_config.prior_duration, post_duration=model_config.post_duration)
         del data_test
+
+        X_test, Y_test = X_test.to(config.device), Y_test.to(config.device)
 
         print(X_test.shape, Y_test.shape)
         get_memory_usage()
