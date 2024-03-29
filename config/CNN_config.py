@@ -7,8 +7,10 @@ def get_config():
     config.lib = 'tensorflow'
 
     # train hyperparameters
+    config.max_lr = 6e-4
+    config.min_lr = 6e-5
     config.epochs = 200
-    config.batch_size = 2048
+    config.batch_size = 64
     config.steps_per_epoch = 10
     config.validation_freq = 10
     config.early_stop = False

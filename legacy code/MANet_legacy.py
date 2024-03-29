@@ -1,3 +1,38 @@
+import ml_collections
+
+def get_config():
+    config = ml_collections.ConfigDict()
+    config.model_name = 'MANet'
+    # choose among 'numpy', 'tensorflow', or 'torch'
+    config.lib = 'torch'
+
+    # train hyperparameters
+    config.max_lr = 1e-3
+    config.min_lr = 1e-5
+    config.epochs = 10
+    config.batch_size = 2048
+    config.steps_per_epoch = 10
+    config.validation_freq = 10
+    config.early_stop = False
+
+    config.prior_duration = 90
+    config.post_duration = 60
+
+    # neural network hyperparameters
+    config.ma_output_size = 15
+    config.stride_size = 1
+    config.nnodes1 = 64
+    config.nnodes2 = 64
+    config.kernel_list = [2, 6, 3, 9, 5, 15, 8, 24, 12, 36, 18, 54, 27, 75]
+    config.ma_combine = 2
+
+    config._lambda = 1e-4
+    config.dropout = 0.1
+
+    return config
+
+#######################################################
+
 import tensorflow as tf
 import keras
 from keras.layers import Conv1D, Conv2D, Flatten, Dense, Dropout, LayerNormalization, LeakyReLU
@@ -7,16 +42,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class WMANN:
+### This file saves all legacy architectures of MANet ###
+
+class MANet:
     def __new__(cls, model_config):
         if model_config["lib"] == "tensorflow" or model_config["lib"] == "numpy":
-            return WMANN_tf(model_config)
+            return MANet_tf(model_config)
         elif model_config["lib"] == "torch":
-            return WMANN_torch(model_config)
+            return MANet_torch(model_config)
 
-class WMANN_tf(keras.Model):
+class MANet_tf(keras.Model):
     def __init__(self, model_config):
-        super(WMANN_tf, self).__init__()
+        super().__init__()
         self.model_config = model_config
 
         for key, value in model_config.items():
@@ -77,17 +114,17 @@ class WMANN_tf(keras.Model):
         return x
     
     def get_config(self):
-        config = super(WMANN_tf, self).get_config()
+        config = super().get_config()
         config.update({'model_config': self.model_config})
         return config
 
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
-class WMANN_torch(nn.Module):
+
+class MANet_torch(nn.Module):
     def __init__(self, model_config):
-        super(WMANN_torch, self).__init__()
+        super().__init__()
         self.model_config = model_config
 
         for key, value in model_config.items():
@@ -100,7 +137,6 @@ class WMANN_torch(nn.Module):
         self.conv1 = nn.ModuleList()
         for i in range(len(self.kernel_list)):
             self.conv1.append(nn.Conv1d(5, self.nnodes1, kernel_size=int(self.kernel_list[i]), stride=self.stride_size))
-
 
         self.conv2 = nn.Conv2d(self.nnodes1, self.nnodes2, kernel_size=(1, self.ma_combine), stride=1, bias=False)
         

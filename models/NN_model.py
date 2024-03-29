@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from models.WMANN import WMANN
+from models.MANet import MANet
 from models.CNN import CNN
 
 from keras.optimizers import Adam
@@ -9,8 +9,9 @@ from keras.callbacks import EarlyStopping
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+
+import logging
 
 class NN_model:
     def __new__(cls, model_config):
@@ -36,8 +37,8 @@ class NN_base:
 
     def get_model(self, model_config):
         # create NN model, and load model if already pretrained
-        if self.model_name == 'WMANN':
-            model = WMANN(dict(model_config))
+        if self.model_name == 'MANet':
+            model = MANet(model_config)
         elif self.model_name == 'CNN':
             model = CNN(dict(model_config))
         else:
@@ -52,7 +53,7 @@ class NN_base:
 
 class NN_model_tf(NN_base):
     def __init__(self, model_config):
-        super(NN_model_tf, self).__init__(model_config)
+        super().__init__(model_config)
         self.optimizer = Adam(learning_rate=model_config.max_lr, beta_1=0.9, beta_2=0.999, epsilon=1e-9)
         self.model.compile(optimizer=self.optimizer, loss='mean_squared_error')
         self.model.summary()
@@ -83,13 +84,11 @@ class NN_model_tf(NN_base):
 
 class NN_model_torch(NN_base):
     def __init__(self, model_config):
-        super(NN_model_torch, self).__init__(model_config)
-        self.loss_function = nn.MSELoss()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=model_config.max_lr, betas=(0.9, 0.999), eps=1e-9)
-        total_params = sum(p.numel() for p in self.model.parameters())
-        print(f"Total Parameters: {total_params}")
-
-    def train(self, X_train, Y_train, X_test, Y_test, epochs=100, batch_size=64, steps_per_epoch=None, validation_freq=10, early_stop=False):
+        super().__init__(model_config) # MANet initiated here
+        self.loss_fn = nn.MSELoss()
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=model_config.max_lr, betas=(0.9, 0.999), eps=1e-9)
+        
+    def train(self, X_train, Y_train, X_test, Y_test, epochs=100, batch_size=64, validation_freq=10, early_stop=False):
         train_dataset = TensorDataset(X_train, Y_train)
         test_dataset = TensorDataset(X_test, Y_test)
         
@@ -102,18 +101,20 @@ class NN_model_torch(NN_base):
             for inputs, targets in train_loader:
                 self.optimizer.zero_grad()
                 outputs = self.model(inputs)
-                loss = self.loss_function(outputs, targets)
+                loss = self.loss_fn(outputs, targets)
+                logging.info(f"Batch Loss for epoch {epoch+1}/{epochs}: {loss.item()}")
+                
                 loss.backward()
                 self.optimizer.step()
                 train_loss += loss.item()
             
-            if (epoch+1) % validation_freq == 0:
+            if (epoch + 1) % validation_freq == 0:
                 self.model.eval()
                 eval_loss = 0.0
                 with torch.no_grad():
                     for inputs, targets in test_loader:
                         outputs = self.model(inputs)
-                        loss = self.loss_function(outputs, targets.view(-1, 1))
+                        loss = self.loss_fn(outputs, targets)
                         eval_loss += loss.item()
                 print(f"Epoch {epoch+1}/{epochs}, Loss: {train_loss / len(train_loader)}, Eval Loss: {eval_loss / len(test_loader)}")
             else:
@@ -133,7 +134,7 @@ class NN_model_torch(NN_base):
             for inputs, targets in test_loader:
                 outputs = self.model(inputs)
                 predictions.extend(outputs.tolist())
-                loss = self.loss_function(outputs, targets.view(-1, 1))
+                loss = self.loss_fn(outputs, targets.view(-1, 1))
                 eval_loss += loss.item()
 
         print(f"Test Loss: {eval_loss / len(test_loader)}")

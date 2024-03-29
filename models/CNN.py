@@ -7,19 +7,16 @@ import torch
 import torch.nn as nn
 
 class CNN:
-    def __new__(cls, model_config):
-        if model_config["lib"] == "tensorflow" or model_config["lib"] == "numpy":
-            return CNN_tf(model_config)
-        elif model_config["lib"] == "torch":
-            return CNN_torch(model_config)
+    def __new__(cls, config):
+        if config["lib"] == "tensorflow" or config["lib"] == "numpy":
+            return CNN_tf(config)
+        elif config["lib"] == "torch":
+            return CNN_torch(config)
 
 class CNN_tf(keras.Model):
-    def __init__(self, model_config):
-        super(CNN_tf, self).__init__()
-        self.model_config = model_config
-
-        for key, value in model_config.items():
-            setattr(self, key, value)
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
         
         initializer = tf.keras.initializers.GlorotNormal(seed=42)
 
@@ -32,13 +29,13 @@ class CNN_tf(keras.Model):
         
         self.flatten = Flatten()
         
-        self.dropout1 = Dropout(self.dropout)
+        self.dropout1 = Dropout(config.dropout)
         self.fc1 = Dense(128, activation='relu', kernel_initializer=initializer)
-        self.dropout2 = Dropout(self.dropout)
+        self.dropout2 = Dropout(config.dropout)
         self.fc2 = Dense(64, activation='relu', kernel_initializer=initializer)
         self.fc3 = Dense(4, kernel_initializer=initializer)
 
-        self.build(input_shape=(None, self.prior_duration, 5))
+        self.build(input_shape=(None, config.prior_duration, 5))
 
     def call(self, inputs):
         x = self.conv1(inputs)
@@ -57,24 +54,12 @@ class CNN_tf(keras.Model):
         x = self.fc3(x)
 
         return x
-    
-    def get_config(self):
-            config = super(CNN_tf, self).get_config()
-            config.update({'model_config': self.model_config})
-            return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
 
 
 class CNN_torch(nn.Module):
-    def __init__(self, model_config):
-        super(CNN_torch, self).__init__()
-        self.model_config = model_config
-
-        for key, value in model_config.items():
-            setattr(self, key, value)
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
 
         self.initializer = nn.init.xavier_normal_
         
@@ -92,11 +77,11 @@ class CNN_torch(nn.Module):
 
         self.flatten = nn.Flatten()
 
-        self.dropout1 = nn.Dropout(self.dropout)
-        self.fc1 = nn.Linear(256 * (self.prior_duration // 8), 128)
+        self.dropout1 = nn.Dropout(config.dropout)
+        self.fc1 = nn.Linear(256 * (config.prior_duration // 8), 128)
         self.relu4 = nn.ReLU()
 
-        self.dropout2 = nn.Dropout(self.dropout)
+        self.dropout2 = nn.Dropout(config.dropout)
         self.fc2 = nn.Linear(128, 64)
         self.relu5 = nn.ReLU()
 
